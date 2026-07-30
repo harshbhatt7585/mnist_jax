@@ -44,7 +44,7 @@ updated_a = a.at[0, 1].add(5.0)
 This functional update style works naturally with transformations such as
 `jax.jit`.
 
-### 2. Data-dependent conditions require JAX control flow
+### 2. Conditions are not compiled in JAX function.
 
 During JIT compilation, JAX traces the operations performed by a function.
 A regular Python `if` statement fails when its condition depends on a runtime
