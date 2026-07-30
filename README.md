@@ -3,8 +3,76 @@
 Neural Network is an mathematical function which takes input and returns output
 
 $$
-y = mx + c
+out = NN(input)
 $$
+
+MNIST is an dataset of 1-9 digits handwritten images.
+
+We will make a neural network to solve and predict these digits from images.
+
+For that, we will create 2 layers which will contain Weights and Biases. 
+
+
+We will use ReLU activation function, it turns all negative numbers to 0 and positive number to as it is.
+This will help us filter out the Neurons as possibly those with negative value are not contributing to recognize
+the patterns. And gradients of 0 will be 0 so no updates on those neurons. 
+
+
+Let's define Layers
+
+Let W1,b1, W2, b2 are Matrices 
+
+$$
+input_dim = 784
+hidden_dim = 784
+output_dim = 10
+$$
+
+
+Layer 1:
+$$
+W1 belongs to R^(input_dim x hidden_dim)
+b1 belongs to R^(hidden_dim)
+$$
+
+$$
+W2 belongs to R^(hidden_dim x hidden_dim)
+b2 belongs to R^(output_dim)
+$$
+
+
+Forward paas computation:
+
+Layer 1:
+$$
+Z1 = inputs @ W1 + b1
+Z1 = ReLU(Z1) = Max(0, Z1)
+$$
+
+Layer 2:
+$$
+Z2 = Z1 @ W2 + b2
+Z2 = ReLU(Z2) = Max(0, Z2)
+$$
+
+
+This is How we do forward paas, to train model, we need to compute gradients through backward paas
+
+you must have studied about Chain Rule in High School.
+
+$$
+dx/ds = dx/du * du/ds
+$$
+
+
+Similarly to compute gradient from dLoss/dW1, we can use chain rule by tracing in backward direction.
+
+
+Loss Function:
+
+Here we are using cross entropy loss, which is just lagorithm version of Mean squared error
+
+
 
 
 # Build a Neural Network from Scratch with JAX
