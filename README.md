@@ -1,3 +1,12 @@
+# Neural Network
+
+Neural Network is an mathematical function which takes input and returns output
+
+$$
+y = mx + c
+$$
+
+
 # Build a Neural Network from Scratch with JAX
 
 JAX brings NumPy-style array programming together with automatic
