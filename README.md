@@ -1,79 +1,236 @@
 # Neural Network
 
-Neural Network is an mathematical function which takes input and returns output
+Note: assuming you have understanding of matrix multiplication and partial derivatives. 
 
-$$
-out = NN(input)
-$$
+To understand matrix multiplication, checkout: https://matrixmultiplication.xyz/
+To understand Partial derivative, you can learn from Khan Academy. 
 
-MNIST is an dataset of 1-9 digits handwritten images.
+A neural network is a mathematical function that takes an input and returns
+an output:
 
-We will make a neural network to solve and predict these digits from images.
+```text
+output = NN(input)
+```
 
-For that, we will create 2 layers which will contain Weights and Biases. 
+MNIST is a dataset of handwritten images of digits from 0 to 9.
+We will build a neural network that predicts the digit shown in each image.
 
+For this, we will create two layers containing weights and biases.
 
-We will use ReLU activation function, it turns all negative numbers to 0 and positive number to as it is.
-This will help us filter out the Neurons as possibly those with negative value are not contributing to recognize
-the patterns. And gradients of 0 will be 0 so no updates on those neurons. 
+We will use the ReLU activation function. It turns negative values into zero
+and leaves positive values unchanged:
 
+```text
+ReLU(x) = max(0, x)
+```
 
-Let's define Layers
+ReLU introduces non-linearity, which helps the network learn complex
+patterns. When its input is negative, its gradient is zero, so no gradient
+passes through that activation for that input.
 
-Let W1,b1, W2, b2 are Matrices 
+Let's define the layers.
 
-$$
+Let `W1` and `W2` be the weight matrices, and let `b1` and `b2` be the bias
+vectors.
+
+```text
 input_dim = 784
-hidden_dim = 784
+hidden_dim = 256
 output_dim = 10
-$$
-
+```
 
 Layer 1:
-$$
-W1 belongs to R^(input_dim x hidden_dim)
+
+```text
+W1 belongs to R^(input_dim × hidden_dim)
 b1 belongs to R^(hidden_dim)
-$$
-
-$$
-W2 belongs to R^(hidden_dim x hidden_dim)
-b2 belongs to R^(output_dim)
-$$
-
-
-Forward paas computation:
-
-Layer 1:
-$$
-Z1 = inputs @ W1 + b1
-Z1 = ReLU(Z1) = Max(0, Z1)
-$$
+```
 
 Layer 2:
-$$
-Z2 = Z1 @ W2 + b2
-Z2 = ReLU(Z2) = Max(0, Z2)
-$$
 
+```text
+W2 belongs to R^(hidden_dim × output_dim)
+b2 belongs to R^(output_dim)
+```
 
-This is How we do forward paas, to train model, we need to compute gradients through backward paas
+Forward-pass computation:
 
-you must have studied about Chain Rule in High School.
+Layer 1:
 
-$$
-dx/ds = dx/du * du/ds
-$$
+```text
+Z1 = inputs @ W1 + b1
+H  = ReLU(Z1) = max(0, Z1)
+```
 
+Layer 2:
 
-Similarly to compute gradient from dLoss/dW1, we can use chain rule by tracing in backward direction.
+```text
+logits = H @ W2 + b2
+```
 
+This is how we perform the forward pass. To train the model, we need to
+compute gradients through a backward pass.
 
-Loss Function:
+You may remember the chain rule from high-school calculus. If `x` depends on
+`u`, and `u` depends on `s`, then:
 
-Here we are using cross entropy loss, which is just lagorithm version of Mean squared error
+```text
+dx/ds = (dx/du) × (du/ds)
+```
 
+Similarly, to compute the gradient `dLoss/dW1`, we use the chain rule to
+trace backward from the loss to `W1`. JAX performs this calculation for us
+through automatic differentiation.
 
+Loss function:
 
+Here, we use cross-entropy loss. It measures how strongly the model's
+predicted class probabilities disagree with the correct labels. For a batch
+of `B` samples:
+
+```text
+loss = -(1 / B) × sum(log(probability of the correct class))
+```
+
+To compute the network gradients, we need to compute the gradient of the loss
+with respect to every learnable parameter: `W1`, `b1`, `W2`, and `b2`.
+
+### Backward-pass graph
+
+The final operation in the forward pass is the cross-entropy loss. The
+backward pass starts from this loss and follows the network in reverse:
+
+```text
+Cross-entropy loss L
+        |
+        v
+dLogits = (probabilities - one_hot_targets) / B
+        |
+        +-----------------------> dW2 = H.T @ dLogits
+        |
+        +-----------------------> db2 = sum(dLogits, axis=0)
+        |
+        v
+dH = dLogits @ W2.T
+        |
+        v
+dZ1 = dH * (Z1 > 0)              ReLU backward pass
+        |
+        +-----------------------> dW1 = inputs.T @ dZ1
+        |
+        +-----------------------> db1 = sum(dZ1, axis=0)
+```
+
+Here, `B` is the batch size and `one_hot_targets` contains the correct class
+for each sample. The expression `(Z1 > 0)` is the derivative of ReLU: it is
+`1` where `Z1` is positive and `0` where `Z1` is negative.
+
+The backward pass follows these steps:
+
+1. Compute how much each logit contributed to the cross-entropy loss.
+2. Use that gradient to compute `dW2` and `db2` for the second layer.
+3. Pass the gradient through `W2` to obtain the gradient of the hidden
+   activations, `dH`.
+4. Pass `dH` through the ReLU derivative to obtain `dZ1`.
+5. Use `dZ1` to compute `dW1` and `db1` for the first layer.
+
+The shapes of the gradients match the parameters they update:
+
+| Gradient | Shape | Parameter |
+| --- | --- | --- |
+| `dW1` | `784 × 256` | `W1` |
+| `db1` | `256` | `b1` |
+| `dW2` | `256 × 10` | `W2` |
+| `db2` | `10` | `b2` |
+
+We do not need to write these derivative calculations manually in JAX.
+`jax.value_and_grad` builds this backward graph and returns the gradients as
+a PyTree with the same structure as the parameters.
+
+### Gradients of all the functions
+
+#### 1. Cross-entropy with softmax
+
+Let `P` contain the probabilities predicted by softmax, and let `Y` contain
+the one-hot encoded correct labels:
+
+```text
+P = softmax(logits)
+L = -(1 / B) × sum(Y * log(P))
+```
+
+The gradient of the mean cross-entropy loss with respect to the logits is:
+
+```text
+dLogits = dL/dLogits = (P - Y) / B
+```
+
+For the correct class, the gradient is `(predicted_probability - 1) / B`.
+For every incorrect class, it is `predicted_probability / B`.
+
+Softmax is useful for understanding this gradient, but our JAX code does not
+create the softmax probabilities explicitly. It computes log-softmax directly
+using `logits - logsumexp(logits)`, which is more numerically stable. The
+resulting gradient is still `(P - Y) / B`.
+
+#### 2. Second dense layer
+
+The second layer computes:
+
+```text
+logits = H @ W2 + b2
+```
+
+Given the incoming gradient `dLogits`, its gradients are:
+
+```text
+dW2 = H.T @ dLogits
+db2 = sum(dLogits, axis=0)
+dH  = dLogits @ W2.T
+```
+
+`dW2` and `db2` are used to update the second layer. `dH` is passed backward
+to the ReLU function.
+
+#### 3. ReLU
+
+The ReLU function and its derivative are:
+
+```text
+ReLU(Z1)  = max(0, Z1)
+
+ReLU'(Z1) = 1  if Z1 > 0
+            0  if Z1 < 0
+```
+
+The incoming gradient is multiplied element by element by this derivative:
+
+```text
+dZ1 = dH * (Z1 > 0)
+```
+
+Positive activations pass their gradient backward, while negative
+activations block it.
+
+#### 4. First dense layer
+
+The first layer computes:
+
+```text
+Z1 = inputs @ W1 + b1
+```
+
+Given the incoming gradient `dZ1`, its gradients are:
+
+```text
+dW1     = inputs.T @ dZ1
+db1     = sum(dZ1, axis=0)
+dInputs = dZ1 @ W1.T
+```
+
+`dW1` and `db1` are used to update the first layer. We usually do not need
+`dInputs` here because the input images are not learnable parameters, but it
+completes the chain rule through the network.
 
 # Build a Neural Network from Scratch with JAX
 
@@ -121,7 +278,7 @@ updated_a = a.at[0, 1].add(5.0)
 This functional update style works naturally with transformations such as
 `jax.jit`.
 
-### 2. Conditions are not compiled in JAX function.
+### 2. Data-dependent conditions require JAX control flow
 
 During JIT compilation, JAX traces the operations performed by a function.
 A regular Python `if` statement fails when its condition depends on a runtime
@@ -157,7 +314,7 @@ def choose_values(x):
     return jnp.where(x == 1, x + 10, x - 10)
 ```
 
-## Tutorial 
+## Tutorial
 
 In this tutorial, we will build and train a two-layer neural network on MNIST
 without using a neural-network framework. Familiarity with Python, NumPy, and
@@ -383,8 +540,22 @@ For each sample, the log-probability of class `i` is:
 log p(i) = z_i - log(sum(exp(z_j)))
 ```
 
-`jax.nn.logsumexp` performs this calculation in a numerically stable way.
-`jnp.take_along_axis` then selects the log-probability of the correct class
+We do not call `jax.nn.softmax` explicitly. The expression
+`logits - logsumexp(logits)` computes log-softmax directly:
+
+```text
+log_softmax(z_i) = z_i - log(sum(exp(z_j)))
+```
+
+Computing log-softmax directly is more numerically stable than calculating
+`log(softmax(logits))`. It is also equivalent to calling:
+
+```python
+log_probabilities = jax.nn.log_softmax(logits, axis=1)
+```
+
+In our implementation, `jax.nn.logsumexp` performs the stable normalization,
+and `jnp.take_along_axis` selects the log-probability of the correct class
 from each row.
 
 ```python
@@ -419,6 +590,10 @@ cross-entropy loss.
 The predicted class is the index of the largest logit. We compile `predict`
 with `jax.jit` so repeated calls with the same input shapes can use optimized
 machine code.
+
+We do not need softmax for prediction because it does not change the order of
+the logits. Therefore, `argmax(logits)` and `argmax(softmax(logits))` select
+the same class.
 
 Accuracy is computed in batches to avoid evaluating the entire dataset at
 once.
